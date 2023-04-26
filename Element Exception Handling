@@ -1,0 +1,127 @@
+ public IWebElement FindElement(By locator, [Optional] string value)
+        {
+            RandomThinkTime();
+            bool skip = false;
+            IWebElement element = null;
+            string bylocator = string.Empty;
+            string selector = string.Empty;
+            elementLocator = locator;
+            locatorPath = locator.ToString().Replace("By.", "");
+            bylocator = locatorPath.Split(':')[0];
+            if (Key.ContainsKey("CommandName"))
+            {
+                if (Key["CommandName"] == "AssertElementNotPresent")
+                {
+                    skip = true;
+                }
+            }
+            try
+            {
+                if (skip == false)
+                {
+                    if (ConfigurationReader.UseSeleniumHub)
+                    {
+                        if (ConfigurationReader.ElementIsVisible)
+                        {
+                            WaitUntilElementExistsAndVisible(locator);
+                        }
+                        else
+                        {
+                            if (value == null)
+                            {
+                                WaitUntilElementLoaded(locator);
+                            }
+                        }
+                    }
+                    element = Driver.FindElement(locator);
+                    HighlightElementUsingJavaScript(element);
+                }
+            }
+            catch (StaleElementReferenceException)
+            {
+                //This type of error is usually caused by an updated DOM   
+                FluentWait(elementLocator);
+            }
+            catch (NoSuchElementException)
+            {
+                //This type of error is usually caused by an updated DOM   
+                FluentWait(elementLocator);
+            }
+            catch (TimeoutException)
+            {
+                Random random = new Random();
+                int thinkTime = random.Next(1000, 3000);
+                Thread.Sleep(thinkTime);                //This type of error is usually caused by load
+                FluentWait(elementLocator);
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains("Stale").Equals(true) || ex.Message.Contains("No such").Equals(true))
+                {
+                    FluentWait(elementLocator);
+                }
+                else
+                {
+                    LogFailure("No such element exception " + locator + " Exception Stack" + ex.Message);
+                }
+            }
+            return element;
+        }
+        
+        FluentWait:
+                public IWebElement FluentWait(By locator,[Optional] int timeout)
+        {
+            RandomThinkTime();
+            IWebElement element = null;
+            string bylocator = string.Empty;
+            string selector = string.Empty;
+            elementLocator = locator;
+            locatorPath = locator.ToString().Replace("By.", "");
+            bylocator = locatorPath.Split(':')[0];
+            bool skip = false;
+            if (Key.ContainsKey("CommandName"))
+            {
+                if (Key["CommandName"] == "AssertElementNotPresent")
+                {
+                    skip = true;
+                }
+            }
+            try
+            {
+                timeout = 80;
+                if (ConfigurationReader.SkipWait == true)
+                {
+                    timeout = 3;
+                }
+                if (skip == false)
+                {
+                    for (int i = 0; i < 2; i++)
+                    {
+
+                        DefaultWait<IWebDriver> fluentWait = new DefaultWait<IWebDriver>(Driver)
+                        {
+                            Timeout = TimeSpan.FromSeconds(timeout),
+                            PollingInterval = TimeSpan.FromMilliseconds(250)
+                        };
+                        fluentWait.IgnoreExceptionTypes(typeof(StaleElementReferenceException));
+                        fluentWait.IgnoreExceptionTypes(typeof(NoSuchElementException));
+                        fluentWait.Until(ExpectedConditions.ElementExists(elementLocator));
+                        if (ConfigurationReader.ComputedStyleCheck)
+                        {
+                            ComputedStyleCheck(elementLocator);
+                            fluentWait.Until(ExpectedConditions.ElementIsVisible(elementLocator));
+                            ScrollToElement(Driver.FindElement(elementLocator));
+                        }
+                    }
+
+                    element = Driver.FindElement(locator);
+                }
+            }
+            catch (Exception ex)
+            {
+               
+                LogFailure("No such element exception " + locator + " Exception Stack" + ex.Message);
+                
+            }
+            return element;
+        }
